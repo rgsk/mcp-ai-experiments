@@ -3,7 +3,6 @@ import {
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import cors from "cors";
 import express from "express";
 import environmentVars from "lib/environmentVars";
 import jsonDataService from "lib/jsonDataService";
@@ -62,7 +61,7 @@ server.tool(
 );
 
 const app = express();
-app.use(cors());
+// app.use(cors());
 let transport: SSEServerTransport;
 
 app.get("/sse", async (req, res) => {
