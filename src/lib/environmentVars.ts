@@ -15,6 +15,7 @@ const environmentVarsSchema = z.object({
   NODE_ENV: AppEnvironmentEnum,
   PORT: z.string(),
   NODE_AI_EXPERIMENTS_SERVER_URL: z.string(),
+  PYTHON_AI_EXPERIMENTS_SERVER_URL: z.string(),
   MCP_SECRET: z.string(),
 });
 
@@ -22,6 +23,8 @@ const fields: z.infer<typeof environmentVarsSchema> = {
   NODE_ENV: process.env.NODE_ENV! as AppEnvironment,
   PORT: process.env.PORT!,
   NODE_AI_EXPERIMENTS_SERVER_URL: process.env.NODE_AI_EXPERIMENTS_SERVER_URL!,
+  PYTHON_AI_EXPERIMENTS_SERVER_URL:
+    process.env.PYTHON_AI_EXPERIMENTS_SERVER_URL!,
   MCP_SECRET: process.env.MCP_SECRET!,
 };
 

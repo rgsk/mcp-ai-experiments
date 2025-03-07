@@ -4,10 +4,11 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
+import aiService from "lib/aiService";
 import environmentVars from "lib/environmentVars";
 import jsonDataService from "lib/jsonDataService";
-import { Memory } from "lib/typesJsonData";
-import saveUserInfoToMemory from "tools/saveUserInfoToMemory";
+import { Memory, Persona } from "lib/typesJsonData";
+import { v4 } from "uuid";
 import { z } from "zod";
 
 // Create an MCP server
@@ -20,6 +21,7 @@ server.resource(
   "userMemories",
   new ResourceTemplate("users://{userEmail}/memories", { list: undefined }),
   async (uri, { userEmail }) => {
+    console.log("userMemories", { userEmail });
     const key = `reactAIExperiments/users/${userEmail}/memories`;
 
     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
@@ -37,6 +39,49 @@ server.resource(
 );
 
 server.tool(
+  "getRelevantDocs",
+  "When you are acting as persona, this tool helps you to get the relevant docs to respond, for this persona data from various sources is collected like websites, pdfs, image texts. When you run this function, you get the relevant texts, which you can use as context to answer user query. This function performs RAG on texts of all those data sources.",
+  {
+    query: z.string({
+      description: "A query based on which docs will be fetched.",
+    }),
+    personaId: z.string(),
+    userEmail: z.string().email(),
+    sources: z
+      .string({ description: "filter by particular sources" })
+      .array()
+      .optional(),
+    numDocs: z
+      .number({ description: "num of documents to be fetched" })
+      .optional(),
+  },
+  async ({ query, personaId, userEmail, numDocs, sources }) => {
+    console.log("getRelevantDocs", { query, personaId, numDocs, sources });
+    const result = await jsonDataService.getKey<Persona>({
+      key: `reactAIExperiments/users/${userEmail}/personas/${personaId}`,
+    });
+    const persona = result?.value;
+    if (!persona) {
+      throw new Error("persona not found");
+    }
+    //   console.log({ query });
+    const relevantDocs = await aiService.getRelevantDocs({
+      query: query,
+      collectionName: persona.collectionName,
+      numDocs,
+      sources,
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(relevantDocs),
+        },
+      ],
+    };
+  }
+);
+server.tool(
   "saveUserInfoToMemory",
   "Save any information the user reveals about themselves during conversations — this includes their preferences, interests, goals, plans, likes/dislikes, personality traits, or anything relevant that can help personalize future conversations.",
   {
@@ -47,13 +92,31 @@ server.tool(
     userEmail: z.string().email(),
   },
   async ({ statement, userEmail }) => {
-    console.log({ statement, userEmail });
-    const result = await saveUserInfoToMemory({ statement, userEmail });
+    console.log("saveUserInfoToMemory", { statement, userEmail });
+    const key = `reactAIExperiments/users/${userEmail}/memories`;
+    const jsonData = await jsonDataService.getKey<Memory[]>({ key });
+    const memory: Memory = {
+      id: v4(),
+      statement,
+      createdAt: new Date().toISOString(),
+    };
+    if (!jsonData) {
+      const jsonData = await jsonDataService.setKey({
+        key: key,
+        value: [memory],
+      });
+    } else {
+      const memories = jsonData.value;
+      const newJsonData = await jsonDataService.setKey({
+        key: key,
+        value: [...memories, memory],
+      });
+    }
     return {
       content: [
         {
           type: "text",
-          text: result,
+          text: "Saved Successfully",
         },
       ],
     };
