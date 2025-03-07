@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "dev": "sh ./bin.dev/start.sh",
-    "serve": "NODE_PATH=dist nodemon dist/app.js",
+    "serve": "NODE_PATH=dist nodemon --ignore logs.js dist/app.js",
     "start": "NODE_PATH=dist node dist/app.js",
     "mcp-inspector": "CLIENT_PORT=8181 SERVER_PORT=9121 npx @modelcontextprotocol/inspector"
   },

@@ -6,6 +6,7 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import aiService from "lib/aiService";
 import environmentVars from "lib/environmentVars";
+import fileLogger from "lib/fileLogger";
 import jsonDataService from "lib/jsonDataService";
 import { Memory, Persona } from "lib/typesJsonData";
 import { v4 } from "uuid";
@@ -20,13 +21,22 @@ const server = new McpServer({
 server.resource(
   "userMemories",
   new ResourceTemplate("users://{userEmail}/memories", { list: undefined }),
-  async (uri, { userEmail }) => {
-    console.log("userMemories", { userEmail });
+  async (uri, variables) => {
+    fileLogger.log({
+      resource: "userMemories",
+      variables,
+    });
+
+    const { userEmail } = variables;
     const key = `reactAIExperiments/users/${userEmail}/memories`;
 
     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
     const memories = jsonData?.value;
     const statements = memories?.map((m) => m.statement);
+    fileLogger.log({
+      resource: "userMemories",
+      output: statements,
+    });
     return {
       contents: [
         {
@@ -55,8 +65,12 @@ server.tool(
       .number({ description: "num of documents to be fetched" })
       .optional(),
   },
-  async ({ query, personaId, userEmail, numDocs, sources }) => {
-    console.log("getRelevantDocs", { query, personaId, numDocs, sources });
+  async (body) => {
+    fileLogger.log({
+      tool: "getRelevantDocs",
+      body,
+    });
+    const { query, personaId, userEmail, numDocs, sources } = body;
     const result = await jsonDataService.getKey<Persona>({
       key: `reactAIExperiments/users/${userEmail}/personas/${personaId}`,
     });
@@ -70,6 +84,10 @@ server.tool(
       collectionName: persona.collectionName,
       numDocs,
       sources,
+    });
+    fileLogger.log({
+      tool: "getRelevantDocs",
+      output: relevantDocs,
     });
     return {
       content: [
@@ -91,8 +109,12 @@ server.tool(
     }),
     userEmail: z.string().email(),
   },
-  async ({ statement, userEmail }) => {
-    console.log("saveUserInfoToMemory", { statement, userEmail });
+  async (body) => {
+    fileLogger.log({
+      tool: "saveUserInfoToMemory",
+      body,
+    });
+    const { statement, userEmail } = body;
     const key = `reactAIExperiments/users/${userEmail}/memories`;
     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
     const memory: Memory = {
@@ -112,11 +134,16 @@ server.tool(
         value: [...memories, memory],
       });
     }
+    const text = "Saved Successfully";
+    fileLogger.log({
+      tool: "saveUserInfoToMemory",
+      output: text,
+    });
     return {
       content: [
         {
           type: "text",
-          text: "Saved Successfully",
+          text: text,
         },
       ],
     };
@@ -130,6 +157,9 @@ let transport: SSEServerTransport;
 app.get("/sse", async (req, res) => {
   transport = new SSEServerTransport("/messages", res);
   await server.connect(transport);
+  transport.onmessage = (message) => {
+    console.log(message);
+  };
 });
 
 app.post("/messages", async (req, res) => {

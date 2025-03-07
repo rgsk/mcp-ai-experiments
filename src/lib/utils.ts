@@ -1,3 +1,4 @@
+import fs from "fs";
 export const encodeQueryParams = (
   params: Record<
     string,
@@ -19,4 +20,29 @@ export const encodeQueryParams = (
     })
     .filter(Boolean)
     .join("&");
+};
+
+export const readFile = async (filePath: string) => {
+  try {
+    const data = await fs.promises.readFile(filePath);
+    return data.toString();
+  } catch (error: any) {
+    throw new Error(`Error reading file: ${error.message}`);
+  }
+};
+
+export const writeFile = async (filePath: string, data: string) => {
+  try {
+    await fs.promises.writeFile(filePath, data);
+  } catch (error: any) {
+    throw new Error(`Error writing file: ${error.message}`);
+  }
+};
+
+export const appendFile = async (filePath: string, data: string) => {
+  try {
+    await fs.promises.appendFile(filePath, data);
+  } catch (error: any) {
+    throw new Error(`Error appending file: ${error.message}`);
+  }
 };
