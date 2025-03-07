@@ -199,6 +199,52 @@ server.tool(
   }
 );
 
+server.tool(
+  "executeCode",
+  "you have to ability to execute code and give outputs of stdout to the user.",
+  {
+    code: z.string({
+      description: html`the code to execute.
+        <important>
+          make sure you perform print/console.log, so you can the see the code
+          execution output, if you won't do that you would get empty string as
+          output.
+        </important>`,
+    }),
+    language: z.enum(
+      ["node", "javascript", "python", "typescript", "cpp", "unknown"],
+      {
+        description: html`programming language to use. If the user explicitly
+        tells about which language to use, use that language. if it's not one of
+        known language pass the value "unknown", I will throw an error.`,
+      }
+    ),
+  },
+  async (args) => {
+    fileLogger.log({
+      tool: "executeCode",
+      args,
+    });
+    const { code, language } = args;
+    if (language === "unknown") {
+      throw new Error("This programming language is not supported");
+    }
+    const { output } = await nodeService.executeCode({ code, language });
+    fileLogger.log({
+      tool: "executeCode",
+      output: output,
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: output,
+        },
+      ],
+    };
+  }
+);
+
 server.prompt(
   "persona",
   { personaId: z.string(), userEmail: z.string() },

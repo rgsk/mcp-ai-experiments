@@ -8,5 +8,11 @@ const nodeService = {
     );
     return result.data;
   },
+  executeCode: async (body: { code: string; language: string }) => {
+    const result = await nodeAIExperimentsAxiosInstance.post<{
+      output: string;
+    }>(`/experiments/execute-code`, body);
+    return result.data;
+  },
 };
 export default nodeService;
