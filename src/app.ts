@@ -8,6 +8,7 @@ import aiService from "lib/aiService";
 import environmentVars from "lib/environmentVars";
 import fileLogger from "lib/fileLogger";
 import jsonDataService from "lib/jsonDataService";
+import nodeService from "lib/nodeService";
 import { Memory, Persona } from "lib/typesJsonData";
 import { html } from "lib/utils";
 import { v4 } from "uuid";
@@ -18,36 +19,6 @@ const server = new McpServer({
   name: "Node AI Experiments MCP Server",
   version: "1.0.0",
 });
-
-// server.resource(
-//   "getUrlContent",
-//   new ResourceTemplate("content://{url}", { list: undefined }),
-//   async (uri, args) => {
-//     fileLogger.log({
-//       resource: "getUrlContent",
-//       args,
-//     });
-
-//     const { url } = args;
-//     const key = `reactAIExperiments/users/${userEmail}/memories`;
-
-//     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
-//     const memories = jsonData?.value;
-//     const statements = memories?.map((m) => m.statement);
-//     fileLogger.log({
-//       resource: "userMemories",
-//       output: statements,
-//     });
-//     return {
-//       contents: [
-//         {
-//           uri: uri.href,
-//           text: JSON.stringify(statements),
-//         },
-//       ],
-//     };
-//   }
-// );
 
 server.resource(
   "userMemories",
@@ -166,6 +137,55 @@ server.tool(
     const text = "Saved Successfully";
     fileLogger.log({
       tool: "saveUserInfoToMemory",
+      output: text,
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: text,
+        },
+      ],
+    };
+  }
+);
+
+server.tool(
+  "getUrlContent",
+  "Get the contents of the web-page that the url is pointing to.",
+  {
+    url: z.string({
+      description: "the url for the which the contents needs to be fetched",
+    }),
+    type: z
+      .enum(
+        [
+          "pdf",
+          "google_doc",
+          "google_sheet",
+          "web_page",
+          "youtube_video",
+          "image",
+        ],
+        {
+          description: html`if you for sure know that url has contents for one
+          of these categories (depending on extension or url structure), (or
+          user has mentioned that summarise this pdf, then you for sure know
+          type is to be sent as pdf, irrespective of url structure), then pass
+          it, otherwise leave it empty`,
+        }
+      )
+      .optional(),
+  },
+  async (args) => {
+    fileLogger.log({
+      tool: "getUrlContent",
+      args,
+    });
+    const { url, type } = args;
+    const text = await nodeService.getUrlContent({ url, type });
+    fileLogger.log({
+      tool: "getUrlContent",
       output: text,
     });
     return {
