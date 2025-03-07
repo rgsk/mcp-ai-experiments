@@ -1,0 +1,28 @@
+{
+  "name": "mcp-ai-experiments",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "sh ./bin.dev/start.sh",
+    "serve": "NODE_PATH=dist nodemon dist/app.js",
+    "start": "NODE_PATH=dist node dist/app.js",
+    "mcp-inspector": "CLIENT_PORT=8181 SERVER_PORT=9121 npx @modelcontextprotocol/inspector"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "axios": "^1.8.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "nodemon": "^3.1.9"
+  }
+}
