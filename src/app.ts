@@ -157,9 +157,6 @@ let transport: SSEServerTransport;
 app.get("/sse", async (req, res) => {
   transport = new SSEServerTransport("/messages", res);
   await server.connect(transport);
-  transport.onmessage = (message) => {
-    console.log(message);
-  };
 });
 
 app.post("/messages", async (req, res) => {
