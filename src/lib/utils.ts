@@ -46,3 +46,14 @@ export const appendFile = async (filePath: string, data: string) => {
     throw new Error(`Error appending file: ${error.message}`);
   }
 };
+
+export function html(strings: any, ...values: any) {
+  let result = "";
+  for (let i = 0; i < strings.length; i++) {
+    result += strings[i];
+    if (i < values.length) {
+      result += values[i];
+    }
+  }
+  return result;
+}

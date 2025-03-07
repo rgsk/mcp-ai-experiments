@@ -9,6 +9,7 @@ import environmentVars from "lib/environmentVars";
 import fileLogger from "lib/fileLogger";
 import jsonDataService from "lib/jsonDataService";
 import { Memory, Persona } from "lib/typesJsonData";
+import { html } from "lib/utils";
 import { v4 } from "uuid";
 import { z } from "zod";
 
@@ -18,16 +19,45 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
+// server.resource(
+//   "getUrlContent",
+//   new ResourceTemplate("content://{url}", { list: undefined }),
+//   async (uri, args) => {
+//     fileLogger.log({
+//       resource: "getUrlContent",
+//       args,
+//     });
+
+//     const { url } = args;
+//     const key = `reactAIExperiments/users/${userEmail}/memories`;
+
+//     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
+//     const memories = jsonData?.value;
+//     const statements = memories?.map((m) => m.statement);
+//     fileLogger.log({
+//       resource: "userMemories",
+//       output: statements,
+//     });
+//     return {
+//       contents: [
+//         {
+//           uri: uri.href,
+//           text: JSON.stringify(statements),
+//         },
+//       ],
+//     };
+//   }
+// );
+
 server.resource(
   "userMemories",
   new ResourceTemplate("users://{userEmail}/memories", { list: undefined }),
-  async (uri, variables) => {
+  async (uri, args) => {
     fileLogger.log({
       resource: "userMemories",
-      variables,
+      args,
     });
-
-    const { userEmail } = variables;
+    const { userEmail } = args;
     const key = `reactAIExperiments/users/${userEmail}/memories`;
 
     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
@@ -65,12 +95,12 @@ server.tool(
       .number({ description: "num of documents to be fetched" })
       .optional(),
   },
-  async (body) => {
+  async (args) => {
     fileLogger.log({
       tool: "getRelevantDocs",
-      body,
+      args,
     });
-    const { query, personaId, userEmail, numDocs, sources } = body;
+    const { query, personaId, userEmail, numDocs, sources } = args;
     const result = await jsonDataService.getKey<Persona>({
       key: `reactAIExperiments/users/${userEmail}/personas/${personaId}`,
     });
@@ -78,7 +108,6 @@ server.tool(
     if (!persona) {
       throw new Error("persona not found");
     }
-    //   console.log({ query });
     const relevantDocs = await aiService.getRelevantDocs({
       query: query,
       collectionName: persona.collectionName,
@@ -109,12 +138,12 @@ server.tool(
     }),
     userEmail: z.string().email(),
   },
-  async (body) => {
+  async (args) => {
     fileLogger.log({
       tool: "saveUserInfoToMemory",
-      body,
+      args,
     });
-    const { statement, userEmail } = body;
+    const { statement, userEmail } = args;
     const key = `reactAIExperiments/users/${userEmail}/memories`;
     const jsonData = await jsonDataService.getKey<Memory[]>({ key });
     const memory: Memory = {
@@ -149,6 +178,85 @@ server.tool(
     };
   }
 );
+
+server.prompt(
+  "persona",
+  { personaId: z.string(), userEmail: z.string() },
+  async (args) => {
+    fileLogger.log({
+      prompt: "persona",
+      args,
+    });
+    const { personaId, userEmail } = args;
+    const result = await jsonDataService.getKey<Persona>({
+      key: `reactAIExperiments/users/${userEmail}/personas/${personaId}`,
+    });
+    const persona = result?.value;
+    if (!persona) {
+      throw new Error("persona not found");
+    }
+    const personaInstruction = `
+      user is interacting persona with following personality
+      <persona>${JSON.stringify(persona)}</persona>
+      you have to respond on persona's behalf
+
+      additionally since, user interacting with this persona, getRelevantDocs tool becomes important
+      so make sure to pass user query to that tool and fetch the relevant docs and respond accordingly
+    `;
+    fileLogger.log({
+      prompt: "persona",
+      output: personaInstruction,
+    });
+    return {
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: personaInstruction,
+          },
+        },
+      ],
+    };
+  }
+);
+
+server.prompt("memory", { userEmail: z.string() }, async (args) => {
+  fileLogger.log({
+    prompt: "memory",
+    args,
+  });
+  const { userEmail } = args;
+  const key = `reactAIExperiments/users/${userEmail}/memories`;
+
+  const jsonData = await jsonDataService.getKey<Memory[]>({ key });
+  const memories = jsonData?.value;
+  const statements = memories?.map((m) => m.statement);
+  const memoryInstruction = html`
+    Following memory statements are gathered from previous conversations with
+    the user, try to incorporate them into the conversation context to provide a
+    more personalized response.
+    <statements> ${statements} </statements>
+
+    additionally, if user has revealed something new about himself in the
+    conversation so far, save that statement in the memory
+  `;
+  fileLogger.log({
+    prompt: "memory",
+    output: memoryInstruction,
+  });
+  return {
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: memoryInstruction,
+        },
+      },
+    ],
+  };
+});
 
 const app = express();
 // app.use(cors());
